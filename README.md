@@ -1,2 +1,2 @@
-# -WITbragday
+# WITbragday
 Analysis of #WITbragday tweets
