@@ -1,0 +1,256 @@
+---
+title: " #WITbragday // August 11-14, 2017"
+author: Katie Jolly
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    theme: spacelab
+---
+
+```{r eval = FALSE}
+# packages used
+library(rtweet)
+library(dplyr)
+library(lubridate)
+library(viridis)
+library(ggplot2)
+library(ggthemes)
+library(tm)
+library(readr)
+library(tm)
+library(topicmodels)
+```
+
+```{r include = FALSE}
+library(rtweet)
+library(dplyr)
+library(lubridate)
+library(viridis)
+library(ggplot2)
+library(ggthemes)
+library(readr)
+library(tm)
+library(topicmodels)
+```
+
+
+```{r include = FALSE, eval = FALSE}
+appname <- "wit_token"
+key <- "g0jAeA6fXA8vXV5NNbFhKKSvh"
+secret <- "2pO5HNQXa8rVnmi69IQTBv27hJ4HgYBaEIEFJiOhOlO24hNBpS"
+token <- create_token(app = appname,
+                      consumer_key = key,
+                      consumer_secret = secret)
+```
+# The Idea
+
+### How I got the idea
+
+On August 11, I saw a mention of the #WITbragday on the Women Who Code DC slack. The thread started with a tweet from Alice Goldfuss. 
+
+[Hey, women in tech, we've had a rough week. I therefore pronouce this #WITbragday](https://twitter.com/alicegoldfuss/status/896031636348743680)
+
+The thread not so subtly referenced the recent "google memo" and gave women an outlet to be proud of what they've done in tech. 
+
+I looked through the first few tweets and was amazed at how quickly it was taking off! I wanted to participate in some way, but I'm pretty sure I have 0 twitter followers because I only use the account for the streaming API. 
+
+### Why it's personal for me 
+
+First off,  I'm female and interested in working in a tech job. Aside from that, growing up I was always encouraged to "brag" about myself, but I have so many female friends in college who didn't have that same experience and it really shows. Many of my coolest projects only happened because of my faith in myself and my understanding that I am my own best advocate. So, to see such a public encouragement of recognzing accomplishments of women in tech was awesome! 
+
+#The Analysis 
+
+### Collecting the data
+
+At first, I was streaming tweets as they came in. 
+
+I was just going to add to what I had collected with the tweets I missed later, but I figured it was cleaner to just pull them all in one fell swoop. After trying a few different methods, I ultimately pulled the tweets using the `rtweet` package.
+
+
+I set my sights high for 30,000 tweets and searched `#WITbragday` with the `search_tweets` function. However, I was not interested in retweets, so I set that argument to `FALSE`. It ended up returning a little more than 7000 hits.
+
+```{r eval = TRUE, include = FALSE}
+wit_bragday <- read_csv("~/Documents/wit_bragday.csv")
+```
+
+
+```{r eval = FALSE}
+# pulling tweets from the twitter API
+wit_bragday <- search_tweets("#WITbragday", n = 30000, retryonratelimit = TRUE, include_rts = FALSE, token = token)
+```
+
+### What data do I have?
+
+```{r}
+str(wit_bragday)
+```
+
+
+This is (unsurprisingly) kind of messy. In particular, I want to clean the `created_at` variable so that it is formatted as POSIXct. 
+
+```{r}
+wit_bragday$created_at_clean <- as.POSIXct(wit_bragday$created_at, tz = "GMT")
+
+wit_bragday$created_at_local <- format(wit_bragday$created_at_clean, tz = "America/New_York", usetz = TRUE)
+```
+
+Here's a better view of how it changes over time. 
+
+```{r}
+# formatting the dates differently 
+
+times <- ymd_hms(wit_bragday$created_at_local, quiet = TRUE)
+
+times_df <- data.frame(wkday = (weekdays(as.Date(times))),
+          hour = format(times, "%H"),
+          tweet_id = wit_bragday$status_id)
+
+# group by time
+
+times_grouped <- times_df %>% group_by(wkday, hour) %>% summarize(n = n())
+
+# fix factor levels
+
+times_grouped$wkday <- factor(times_grouped$wkday, levels =c("Friday", "Saturday", "Sunday", "Monday", "Tuesday"))
+
+times_grouped$wkday <- with(times_grouped, factor(wkday, levels = rev(levels(wkday))))
+
+# making a heatmap of tweets by hour
+
+plot <- ggplot(times_grouped, aes(x = hour, y = wkday, fill = n)) +
+  geom_tile(color = "white", size = 0.1) + 
+  theme_hc() +
+  coord_equal() +
+  scale_fill_viridis(name = "# of tweets") +
+  labs(x = NULL, y = NULL, title = "#WITbragday // August 11 - 14 // 2017", subtitle = "all times eastern standard time") + 
+  theme(axis.ticks = element_blank(),
+        axis.text.x = element_text(size = 8),
+        legend.title = element_text(size = 8),
+        legend.text = element_text(size = 6)) 
+plot
+
+```
+
+### Countries represented
+
+This wasn't just an American hashtag! Women around the world took part. 
+
+```{r}
+countries <- wit_bragday %>% group_by(country) %>% summarize(tweets = n()) %>% filter(tweets >= 8 & !is.na(country))
+
+countries$country <- factor(countries$country, levels = countries[order(countries$tweets, decreasing = T),]$country)
+
+ggplot(countries, aes(x =((country)), y = tweets)) +
+  geom_bar(stat = "identity", fill = "#4f136b") +
+  theme_economist() +
+  labs(x = NULL, y = "Tweets", title = "#WITbrag_day", subtitle ="Tweets per Country // > 8 tweets", caption = "by Katie Jolly") +
+  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1))
+```
+
+### Term frequencies
+
+I'm also interested in how people talk about women in tech. I wanted to look at term frequencies and topic modeling to get an overview of language. As an important note, for finding frequent terms I am adding "witbragday" to the list of stop words because we already know it will be a frequent term.
+
+```{r}
+# create a corpus of text
+myCorpus <- Corpus(VectorSource( wit_bragday$text))
+
+# remove extaneous characters
+removeNumPunct <- function(x) gsub("[^[:alpha:][:space:]]*", "", x)
+myCorpus <- tm_map(myCorpus, content_transformer(removeNumPunct))
+
+# convert all to lowercase
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+
+# remove whitespace
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+
+# remove stopwords
+myStopwords <- c(stopwords('english'),
+"witbragday", "amp", "hashtag", "women", "tech")
+myCorpus <- tm_map(myCorpus, removeWords, myStopwords)
+
+# a copy for later
+myCorpusCopy <- myCorpus
+
+# build term document matrix
+tdm <- TermDocumentMatrix(myCorpus,
+                          control = list(wordLengths = c(1, Inf)))
+
+# view term document matrix
+tdm
+
+# find frequent terms, n = 50
+
+freq_terms <- findFreqTerms(tdm, lowfreq = 50)
+
+term_freq <- rowSums(as.matrix(tdm))
+term_freq <- subset(term_freq, term_freq >= 50)
+
+frequencies <- data.frame(term = names(term_freq), freq = term_freq)
+
+# graph boxplot frequent terms
+
+ggplot(frequencies, aes(x = freq)) + geom_density(fill = "#4f136b") + xlab("Frequency") + ylab("Density") + theme_economist() + labs(title = "Term Frequencies in #WITbragday")
+```
+
+Naturally, most terms above a frequency of 50 are **just** above the 50 mark. That won't be super meaningful to graph though, so I'm just going to subset the terms with a frequency greater than 175. 
+
+```{r}
+high_freq <- subset(frequencies, freq >= 175)
+nrow(high_freq)
+```
+
+Now we only have 32 words, which is much more manageable. 
+
+```{r}
+high_freq$term <- factor(high_freq$term, levels = high_freq[order(high_freq$freq, decreasing = T),]$term)
+
+g <- ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = "#4f136b") + theme_economist() + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7))+ labs(x = NULL, y = "Frequency", title = "Most frequently used words", subtitle = "#WITbragday" , caption = "Does not include 'women', 'tech', or 'witbragday' \n by Katie Jolly, August 15, 2017")
+
+g
+ggsave("wordFreq.jpg", g)
+```
+
+I was pleasantly surprised to find `I'm` at the top of the list. I think that public recognition of women's accomplishments is great, especially when it's first-person. But then also the hashtag did a great job of recognizing smart women as members of teams. In the word frequency graph, `team` isn't all the far behind `I'm`. 
+
+\n The words in the top 29 are a great view into the types of tweets I saw (that will be discussed more in depth in the next section). Words like `awesome`, `amazing`, `team`, `people`, `proud`, and `love` probably didn't come up in discussions of the Google memo, if I had to guess. 
+
+### Topic modeling
+
+```{r}
+dtm <- as.DocumentTermMatrix(tdm)
+
+rowTotals <- apply(dtm , 1, sum) #Find the sum of words in each Document
+dtm.new   <- dtm[rowTotals> 0, ] 
+
+lda <- LDA(dtm.new, k = 8)
+term <- terms(lda, 7)
+
+term <- apply(term, MARGIN = 2, paste, collapse = ", ")
+
+term
+```
+
+Looking at the topics, they don't differ too much, but some tend to be more group-focused while others are more individual. Some women mention years of work, while other women talk about being new to the field. Others mention work they're doing specifically, while there are also tweets referincing the hashtag itself and noticing the outpouring of support. This starts to give insight into the original purpose of the hashtag-- to celebrate the accomplishments of women at all stages of tech work. 
+
+
+### Networks
+
+```{r}
+wit_bragday_lowRT <- subset(wit_bragday, retweet_count > 5 & retweet_count < 500)
+
+ggplot(wit_bragday_lowRT, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_hc()
+
+wit_bragday_highRT <- subset(wit_bragday, retweet_count > 500)
+
+ggplot(wit_bragday_highRT, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_economist()
+```
+
+# Sources
+[Twitter Data Analysis with R](http://www.rdatamining.com/docs/twitter-analysis-with-r)
+
+[ggplot gallery](http://www.r-graph-gallery.com/portfolio/ggplot2-package/)
+
+[rtweet package documentation](http://rtweet.info/)
