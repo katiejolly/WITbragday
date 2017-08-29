@@ -1,5 +1,5 @@
 ---
-title: " #WITbragday // August 11-14, 2017"
+title: " #WITbragday | August 11-14, 2017"
 author: Katie Jolly
 output: 
   html_document:
@@ -20,6 +20,9 @@ library(tm)
 library(readr)
 library(tm)
 library(topicmodels)
+library(wordcloud)
+library(sentiment)
+library(Rgraphviz)
 ```
 
 ```{r include = FALSE}
@@ -78,6 +81,8 @@ wit_bragday <- read_csv("~/Documents/wit_bragday.csv")
 ```{r eval = FALSE}
 # pulling tweets from the twitter API
 wit_bragday <- search_tweets("#WITbragday", n = 30000, retryonratelimit = TRUE, include_rts = FALSE, token = token)
+
+wit_bragday_full <- search_tweets("#WITbragday", n = 30000, retryonratelimit = TRUE, include_rts = TRUE, token = token)
 ```
 
 ### What data do I have?
@@ -119,17 +124,18 @@ times_grouped$wkday <- with(times_grouped, factor(wkday, levels = rev(levels(wkd
 # making a heatmap of tweets by hour
 
 plot <- ggplot(times_grouped, aes(x = hour, y = wkday, fill = n)) +
-  geom_tile(color = "white", size = 0.1) + 
-  theme_hc() +
+  geom_tile(color = "white", size = 0.1) +
   coord_equal() +
-  scale_fill_viridis(name = "# of tweets") +
-  labs(x = NULL, y = NULL, title = "#WITbragday // August 11 - 14 // 2017", subtitle = "all times eastern standard time") + 
+  scale_fill_viridis(name = "# of tweets", option = "plasma") +
+  labs(x = NULL, y = NULL, title = "When are people tweeting about #WITbragday?", subtitle = "all times eastern standard time") + theme_hc() +
   theme(axis.ticks = element_blank(),
         axis.text.x = element_text(size = 8),
         legend.title = element_text(size = 8),
-        legend.text = element_text(size = 6)) 
+        legend.text = element_text(size = 6),
+        plot.title = element_text(face = "bold", color = "#444444"),
+        plot.subtitle = element_text(face = "italic", color = "#444444")) 
 plot
-
+ggsave("times.png")
 ```
 
 ### Countries represented
@@ -142,10 +148,24 @@ countries <- wit_bragday %>% group_by(country) %>% summarize(tweets = n()) %>% f
 countries$country <- factor(countries$country, levels = countries[order(countries$tweets, decreasing = T),]$country)
 
 ggplot(countries, aes(x =((country)), y = tweets)) +
-  geom_bar(stat = "identity", fill = "#4f136b") +
-  theme_economist() +
-  labs(x = NULL, y = "Tweets", title = "#WITbrag_day", subtitle ="Tweets per Country // > 8 tweets", caption = "by Katie Jolly") +
-  theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1))
+  geom_bar(stat = "identity", fill = "#490ca9") +
+  theme_hc() + 
+  labs(x = NULL, 
+       y = "Tweets", 
+       title = "Where in the world is #WITbragday?", 
+       subtitle ="Countries with more than 8 tweets total", 
+       caption = "by Katie Jolly") +
+  theme(axis.text.x = element_text(angle = 60, 
+                                   hjust = 1, 
+                                   vjust = 1, 
+                                   color ="#565656"),
+        plot.title = element_text(face = "bold", 
+                                  color = "#444444"),
+        plot.subtitle = element_text(face = "italic", 
+                                     color = "#565656"),
+        axis.title = element_text(color = "#444444"),
+        plot.caption = element_text(color = "#8e8e8e"))
+ggsave("countries.png")
 ```
 
 ### Term frequencies
@@ -192,7 +212,7 @@ frequencies <- data.frame(term = names(term_freq), freq = term_freq)
 
 # graph boxplot frequent terms
 
-ggplot(frequencies, aes(x = freq)) + geom_density(fill = "#4f136b") + xlab("Frequency") + ylab("Density") + theme_economist() + labs(title = "Term Frequencies in #WITbragday")
+ggplot(frequencies, aes(x = freq)) + geom_density(fill = "#490ca9") + xlab("Frequency") + ylab("Density") + theme_hc() + labs(title = "Term Frequencies in #WITbragday")
 ```
 
 Naturally, most terms above a frequency of 50 are **just** above the 50 mark. That won't be super meaningful to graph though, so I'm just going to subset the terms with a frequency greater than 175. 
@@ -207,7 +227,16 @@ Now we only have 32 words, which is much more manageable.
 ```{r}
 high_freq$term <- factor(high_freq$term, levels = high_freq[order(high_freq$freq, decreasing = T),]$term)
 
-g <- ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = "#4f136b") + theme_economist() + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7))+ labs(x = NULL, y = "Frequency", title = "Most frequently used words", subtitle = "#WITbragday" , caption = "Does not include 'women', 'tech', or 'witbragday' \n by Katie Jolly, August 15, 2017")
+g <- ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = "#490ca9") + theme_hc() +   theme(axis.text.x = element_text(angle = 60, 
+                                   hjust = 1, 
+                                   vjust = 1, 
+                                   color ="#565656"),
+        plot.title = element_text(face = "bold", 
+                                  color = "#444444"),
+        plot.subtitle = element_text(face = "italic", 
+                                     color = "#565656"),
+        axis.title = element_text(color = "#444444"),
+        plot.caption = element_text(color = "#8e8e8e")) + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7))+ labs(x = NULL, y = "Frequency", title = "Most frequently used words", subtitle = "#WITbragday" , caption = "Does not include 'women', 'tech', or 'witbragday' \n by Katie Jolly, August 15, 2017")
 
 g
 ggsave("wordFreq.jpg", g)
@@ -220,6 +249,8 @@ I was pleasantly surprised to find `I'm` at the top of the list. I think that pu
 ### Topic modeling
 
 ```{r}
+
+set.seed(123)
 dtm <- as.DocumentTermMatrix(tdm)
 
 rowTotals <- apply(dtm , 1, sum) #Find the sum of words in each Document
@@ -235,17 +266,55 @@ term
 
 Looking at the topics, they don't differ too much, but some tend to be more group-focused while others are more individual. Some women mention years of work, while other women talk about being new to the field. Others mention work they're doing specifically, while there are also tweets referincing the hashtag itself and noticing the outpouring of support. This starts to give insight into the original purpose of the hashtag-- to celebrate the accomplishments of women at all stages of tech work. 
 
+```{r}
+findAssocs(tdm, "team", 0.12)
+findAssocs(tdm, "im", 0.12)
+findAssocs(tdm, "work", 0.12)
+findAssocs(tdm, "taught", 0.12)
+findAssocs(tdm, "job", 0.12)
+findAssocs(tdm, "start", 0.12)
+
+```
+
+```{r}
+sentiments <- sentiment(wit_bragday$text)
+
+table(sentiments$polarity)
+
+ggplot(sentiments, aes(x = polarity)) + geom_bar(fill = "#490ca9") + theme_hc() +  theme(axis.text.x = element_text(angle = 60, 
+                                   hjust = 1, 
+                                   vjust = 1, 
+                                   color ="#565656"),
+        plot.title = element_text(face = "bold", 
+                                  color = "#444444"),
+        plot.subtitle = element_text(face = "italic", 
+                                     color = "#565656"),
+        axis.title = element_text(color = "#444444"),
+        plot.caption = element_text(color = "#8e8e8e")) + labs(x = "polarity", y = "count")
+ggsave("polarity.png")
+```
+
+```{r}
+ # plot word cloud
+
+m <- as.matrix(tdm)
+# calculate the frequency of words and sort it by frequency 
+
+word.freq <- sort(rowSums(m), decreasing = T)
+# colors
+pal <- brewer.pal(9, "BuPu")[-(1:4)]
+library(wordcloud)
+wordcloud(words = names(word.freq), freq = word.freq, min.freq = 28, max.words = 78,
+    random.order = F, colors = pal)
+```
+
 
 ### Networks
 
 ```{r}
 wit_bragday_lowRT <- subset(wit_bragday, retweet_count > 5 & retweet_count < 500)
 
-ggplot(wit_bragday_lowRT, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_hc()
-
-wit_bragday_highRT <- subset(wit_bragday, retweet_count > 500)
-
-ggplot(wit_bragday_highRT, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_economist()
+ggplot(wit_bragday, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_hc()
 ```
 
 # Sources
