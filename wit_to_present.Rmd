@@ -21,8 +21,10 @@ library(readr)
 library(tm)
 library(topicmodels)
 library(wordcloud)
-library(sentiment)
-library(Rgraphviz)
+library(SentimentAnalysis)
+library(stringi)
+library(highcharter)
+library(stringr)
 ```
 
 ```{r include = FALSE}
@@ -32,9 +34,14 @@ library(lubridate)
 library(viridis)
 library(ggplot2)
 library(ggthemes)
+library(tm)
 library(readr)
 library(tm)
 library(topicmodels)
+library(wordcloud)
+library(SentimentAnalysis)
+library(highcharter)
+library(stringr)
 ```
 
 
@@ -74,7 +81,11 @@ I was just going to add to what I had collected with the tweets I missed later, 
 I set my sights high for 30,000 tweets and searched `#WITbragday` with the `search_tweets` function. However, I was not interested in retweets, so I set that argument to `FALSE`. It ended up returning a little more than 7000 hits.
 
 ```{r eval = TRUE, include = FALSE}
-wit_bragday <- read_csv("~/Documents/wit_bragday.csv")
+wit_bragday <- read_csv("https://raw.githubusercontent.com/katiejolly/WITbragday/master/wit_bragday.csv") %>% 
+  filter(is_retweet == FALSE)
+
+#wit_bragday$text <- as.character(wit_bragday$text)
+
 ```
 
 
@@ -136,6 +147,8 @@ plot <- ggplot(times_grouped, aes(x = hour, y = wkday, fill = n)) +
         plot.subtitle = element_text(face = "italic", color = "#444444")) 
 plot
 ggsave("times.png")
+
+hchart(times_grouped, type = "heatmap", hcaes(x = hour, y = wkday, value = n), name = "tweets")
 ```
 
 ### Countries represented
@@ -277,21 +290,26 @@ findAssocs(tdm, "start", 0.12)
 ```
 
 ```{r}
-sentiments <- sentiment(wit_bragday$text)
+wit_bragday$text_usable <- gsub("[^[:alpha:][:space:]]*", "", wit_bragday$text)
+sentiments <- analyzeSentiment(as.character(wit_bragday$text_usable)) 
 
-table(sentiments$polarity)
+# ggplot(sentiments, aes(x = SentimentGI)) + geom_density(fill = "#490ca9") + 
+#   theme_hc() +  
+#   theme(axis.text.x = element_text(angle = 60, 
+#                                    hjust = 1, 
+#                                    vjust = 1, 
+#                                    color ="#565656"),
+#         plot.title = element_text(face = "bold", 
+#                                   color = "#444444"),
+#         plot.subtitle = element_text(face = "italic", 
+#                                      color = "#565656"),
+#         axis.title = element_text(color = "#444444"),
+#         plot.caption = element_text(color = "#8e8e8e")) + 
+#   labs(x = "polarity", y = NULL, title = "Sentiment based on Harvard-IV dictionary")
+# ggsave("polarity.png")
 
-ggplot(sentiments, aes(x = polarity)) + geom_bar(fill = "#490ca9") + theme_hc() +  theme(axis.text.x = element_text(angle = 60, 
-                                   hjust = 1, 
-                                   vjust = 1, 
-                                   color ="#565656"),
-        plot.title = element_text(face = "bold", 
-                                  color = "#444444"),
-        plot.subtitle = element_text(face = "italic", 
-                                     color = "#565656"),
-        axis.title = element_text(color = "#444444"),
-        plot.caption = element_text(color = "#8e8e8e")) + labs(x = "polarity", y = "count")
-ggsave("polarity.png")
+hchart(density(sentiments$SentimentGI), type = "area", color = "#B71C1C", name = "Density") %>%
+  hc_xAxis(title = list(text = "Sentiment"))
 ```
 
 ```{r}
@@ -323,3 +341,5 @@ ggplot(wit_bragday, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + t
 [ggplot gallery](http://www.r-graph-gallery.com/portfolio/ggplot2-package/)
 
 [rtweet package documentation](http://rtweet.info/)
+
+
