@@ -1,11 +1,34 @@
 ---
-title: How Women in Tech Talk About Themselves on Twitter
+title: "How Women in Tech Talk About Themselves on Twitter"
 author: Katie Jolly
 date: November 3, 2017
   output: slidy_presentation
     theme: spacelab
     footer: "Macalester College"
 ---
+
+```{r include = FALSE}
+library(rtweet)
+library(dplyr)
+library(lubridate)
+library(viridis)
+library(ggplot2)
+library(ggthemes)
+library(tm)
+library(readr)
+library(tm)
+library(topicmodels)
+library(wordcloud)
+library(SentimentAnalysis)
+library(stringi)
+library(highcharter)
+library(stringr)
+library(stm)
+
+wit_bragday <- read_csv("https://raw.githubusercontent.com/katiejolly/WITbragday/master/wit_bragday.csv") %>% 
+  filter(is_retweet == FALSE)
+  
+```
 
 ## The problem, and a solution
 
@@ -15,3 +38,82 @@ add picture of tweet here
 
 ## Exploratory analysis
 
+```{r include = FALSE}
+wit_bragday$created_at_clean <- as.POSIXct(wit_bragday$created_at, tz = "GMT")
+
+wit_bragday$created_at_local <- format(wit_bragday$created_at_clean, tz = "America/New_York", usetz = TRUE)
+
+# formatting the dates differently 
+
+times <- ymd_hms(wit_bragday$created_at_local, quiet = TRUE)
+
+times_df <- data.frame(wkday = (weekdays(as.Date(times))),
+          hour = format(times, "%H"),
+          tweet_id = wit_bragday$status_id)
+
+# group by time
+
+times_grouped <- times_df %>% group_by(wkday, hour) %>% summarize(n = n())
+
+# fix factor levels
+
+times_grouped$wkday <- factor(times_grouped$wkday, levels =c("Friday", "Saturday", "Sunday", "Monday", "Tuesday"))
+
+times_grouped$wkday <- with(times_grouped, factor(wkday, levels = rev(levels(wkday))))
+```
+```{r}
+hchart(times_grouped, type = "heatmap", hcaes(x = hour, y = wkday, value = n), name = "tweets")
+```
+
+```{r include = FALSE}
+# create a corpus of text
+myCorpus <- Corpus(VectorSource( wit_bragday$text))
+
+# remove extaneous characters
+removeNumPunct <- function(x) gsub("[^[:alpha:][:space:]]*", "", x)
+myCorpus <- tm_map(myCorpus, content_transformer(removeNumPunct))
+
+# convert all to lowercase
+myCorpus <- tm_map(myCorpus, content_transformer(tolower))
+
+# remove whitespace
+myCorpus <- tm_map(myCorpus, stripWhitespace)
+
+# remove stopwords
+myStopwords <- c(stopwords('english'),
+"witbragday", "amp", "hashtag", "women", "tech")
+myCorpus <- tm_map(myCorpus, removeWords, myStopwords)
+
+# a copy for later
+myCorpusCopy <- myCorpus
+
+# build term document matrix
+tdm <- TermDocumentMatrix(myCorpus,
+                          control = list(wordLengths = c(1, Inf)))
+
+# view term document matrix
+tdm
+
+# find frequent terms, n = 50
+
+freq_terms <- findFreqTerms(tdm, lowfreq = 50)
+
+term_freq <- rowSums(as.matrix(tdm))
+term_freq <- subset(term_freq, term_freq >= 50)
+
+frequencies <- data.frame(term = names(term_freq), freq = term_freq
+```
+
+```{r}
+high_freq <- subset(frequencies, freq >= 175)
+ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = "#490ca9") + theme_hc() +   theme(axis.text.x = element_text(angle = 60, 
+                                   hjust = 1, 
+                                   vjust = 1, 
+                                   color ="#565656"),
+        plot.title = element_text(face = "bold", 
+                                  color = "#444444"),
+        plot.subtitle = element_text(face = "italic", 
+                                     color = "#565656"),
+        axis.title = element_text(color = "#444444"),
+        plot.caption = element_text(color = "#8e8e8e")) + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7))+ labs(x = NULL, y = "Frequency", title = "Most frequently used words", subtitle = "#WITbragday" , caption = "Does not include 'women', 'tech', or 'witbragday')
+```
