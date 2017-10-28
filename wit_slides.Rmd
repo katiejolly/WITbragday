@@ -1,0 +1,17 @@
+---
+title: How Women in Tech Talk About Themselves on Twitter
+author: Katie Jolly
+date: November 3, 2017
+  output: slidy_presentation
+    theme: spacelab
+    footer: "Macalester College"
+---
+
+## The problem, and a solution
+
+pictures here! In email from emma
+
+add picture of tweet here
+
+## Exploratory analysis
+
