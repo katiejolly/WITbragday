@@ -50,7 +50,7 @@ library(stm)
 ```{r include = FALSE, eval = FALSE}
 appname <- "wit_token"
 key <- "g0jAeA6fXA8vXV5NNbFhKKSvh"
-secret <- "2pO5HNQXa8rVnmi69IQTBv27hJ4HgYBaEIEFJiOhOlO24hNBpS"
+secret <- #insert secret key here
 token <- create_token(app = appname,
                       consumer_key = key,
                       consumer_secret = secret)
