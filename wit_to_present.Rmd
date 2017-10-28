@@ -363,7 +363,7 @@ plotModels(wit_Select, pch=c(1,2,3,4), legend.position="bottomright")
 
 ```
 
-## Plotting STM results
+### Plotting STM results
 ```{r}
 plot(wit_model, type = "summary", xlim = c(0, .3))
 
