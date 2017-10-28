@@ -25,6 +25,7 @@ library(SentimentAnalysis)
 library(stringi)
 library(highcharter)
 library(stringr)
+library(stm)
 ```
 
 ```{r include = FALSE}
@@ -42,6 +43,7 @@ library(wordcloud)
 library(SentimentAnalysis)
 library(highcharter)
 library(stringr)
+library(stm)
 ```
 
 
@@ -327,14 +329,51 @@ wordcloud(words = names(word.freq), freq = word.freq, min.freq = 28, max.words =
 ```
 
 
-### Networks
+### Structural topic models
 
 ```{r}
-wit_bragday_lowRT <- subset(wit_bragday, retweet_count > 5 & retweet_count < 500)
+wit_stm_data <- wit_bragday %>%
+  select(c(text, text_usable, favorite_count, retweet_count))
+processed <- textProcessor(wit_stm_data$text_usable, metadata = wit_stm_data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <-out$meta
 
-ggplot(wit_bragday, aes(x = retweet_count)) + geom_density(fill = "#4f136b") + theme_hc()
+plotRemoved(processed$documents, lower.thresh = seq(1, 200, by = 100))
+
+# search K function
+
+storage <- searchK(out$documents, out$vocab, K = c(4, 8),
+  prevalence = favorite_count * retweet_count, data = meta)
+  
+# choose K value, then enter for K in the next function
+
+k <- 
+
+wit_Select <- selectModel(out$documents, out$vocab, K = k,
+prevalence =favorite_count * retweet_count, max.em.its = 250,
+data = out$meta, runs = 20, seed = 123)
+
+# then pick a model wit_model
+
+# then plot the results
+
+plotModels(wit_Select, pch=c(1,2,3,4), legend.position="bottomright")
+
 ```
 
+## Plotting STM results
+```{r}
+plot(wit_model, type = "summary", xlim = c(0, .3))
+
+cloud(wit_model, topic = 7, scale = c(2,.25))
+
+mod.out.corr <- topicCorr(wit_model)
+
+plot(mod.out.corr)
+
+```
 # Sources
 [Twitter Data Analysis with R](http://www.rdatamining.com/docs/twitter-analysis-with-r)
 
