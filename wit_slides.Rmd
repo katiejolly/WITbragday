@@ -32,9 +32,10 @@ wit_bragday <- read_csv("https://raw.githubusercontent.com/katiejolly/WITbragday
 
 ## The problem, and a solution
 
-pictures here! In email from emma
+We often hear in the news about how professional women talk about themselves at work. But, we don't always hear much of a solution. One hashtag in August aimed to change that. 
 
-add picture of tweet here
+![]("alice.png")
+
 
 ## Exploratory analysis
 
@@ -116,4 +117,38 @@ ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = 
                                      color = "#565656"),
         axis.title = element_text(color = "#444444"),
         plot.caption = element_text(color = "#8e8e8e")) + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 7))+ labs(x = NULL, y = "Frequency", title = "Most frequently used words", subtitle = "#WITbragday" , caption = "Does not include 'women', 'tech', or 'witbragday')
+```
+## Sentiment analysis
+
+```{r}
+wit_bragday$text_usable <- gsub("[^[:alpha:][:space:]]*", "", wit_bragday$text)
+sentiments <- analyzeSentiment(as.character(wit_bragday$text_usable)) 
+
+hchart(density(sentiments$SentimentGI), type = "area", color = "#B71C1C", name = "Density") %>%
+  hc_xAxis(title = list(text = "Sentiment"))
+```
+
+## Topic modelling
+
+```{r}
+wit_stm_data <- wit_bragday %>%
+  select(c(text, text_usable, favorite_count, retweet_count))
+processed <- textProcessor(wit_stm_data$text_usable, metadata = wit_stm_data)
+out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
+docs <- out$documents
+vocab <- out$vocab
+meta <-out$meta
+
+wit_model <- stm(documents = out$documents, vocab = out$vocab,
+K = 7, prevalence =~ favorite_count * retweet_count,
+max.em.its = 200, data = out$meta,
+init.type = "Spectral")
+```
+
+```{r}
+plot(wit_model, type = "summary", xlim = c(0, .3))
+
+mod.out.corr <- topicCorr(wit_model)
+
+plot(mod.out.corr)
 ```
