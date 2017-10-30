@@ -71,7 +71,7 @@ hchart(times_grouped, type = "heatmap", hcaes(x = hour, y = wkday, value = n), n
 
 ## Frequent terms
 
-```{r echo = FALSE}
+```{r include = FALSE}
 # create a corpus of text
 myCorpus <- Corpus(VectorSource( wit_bragday$text))
 
@@ -113,8 +113,19 @@ high_freq <- subset(frequencies, freq >= 175)
 
 high_freq$term <- factor(high_freq$term, levels = high_freq[order(high_freq$freq, decreasing = T),]$term)
 
-ggplot(frequencies, aes(x = freq)) + geom_density(fill = "#490ca9") + xlab("Frequency") + ylab("Density") + theme_hc() + labs(title = "Term Frequencies in #WITbragday")
+```
 
+```{r echo = FALSE}
+ggplot(high_freq, aes(x = term, y = freq)) + geom_bar(stat = "identity", fill = "#915ae2") + theme_hc() +   theme(axis.text.x = element_text(angle = 60, 
+                                   hjust = 1, 
+                                   vjust = 1, 
+                                   color ="#565656"),
+        plot.title = element_text(face = "bold", 
+                                  color = "#444444"),
+        plot.subtitle = element_text(face = "italic", 
+                                     color = "#565656"),
+        axis.title = element_text(color = "#444444"),
+        plot.caption = element_text(color = "#8e8e8e")) + theme(axis.text.x = element_text(angle = 60, hjust = 1, vjust = 1, size = 10))+ labs(x = NULL, y = "Frequency")
 ```
 
 
@@ -133,7 +144,7 @@ hchart(density(sentiments$SentimentGI), type = "area", color = "#B71C1C", name =
 ```{r include=FALSE}
 wit_stm_data <- wit_bragday %>%
   select(c(text, text_usable, favorite_count, retweet_count))
-processed <- textProcessor(wit_stm_data$text_usable, metadata = wit_stm_data)
+processed <- textProcessor(wit_stm_data$text_usable, metadata = wit_stm_data, customstopwords = c("women", "tech", "witbragday"))
 out <- prepDocuments(processed$documents, processed$vocab, processed$meta)
 docs <- out$documents
 vocab <- out$vocab
@@ -142,7 +153,7 @@ meta <-out$meta
 witmodel <- stm(documents = out$documents, vocab = out$vocab,
 K = 7, prevalence =~ favorite_count * retweet_count,
 max.em.its = 200, data = out$meta,
-init.type = "Spectral")
+init.type = "Spectral", seed = 123)
 ```
 
 
