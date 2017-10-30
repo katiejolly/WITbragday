@@ -6,10 +6,6 @@ output:
     theme: spacelab
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = FALSE)
-```
-
 ```{r include = FALSE}
 library(rtweet)
 library(dplyr)
@@ -69,13 +65,13 @@ times_grouped$wkday <- with(times_grouped, factor(wkday, levels = rev(levels(wkd
 
 
 
-```{r}
+```{r echo=FALSE}
 hchart(times_grouped, type = "heatmap", hcaes(x = hour, y = wkday, value = n), name = "tweets")
 ```
 
 ## Frequent terms
 
-```{r include = FALSE}
+```{r echo = FALSE}
 # create a corpus of text
 myCorpus <- Corpus(VectorSource( wit_bragday$text))
 
@@ -117,12 +113,14 @@ high_freq <- subset(frequencies, freq >= 175)
 
 high_freq$term <- factor(high_freq$term, levels = high_freq[order(high_freq$freq, decreasing = T),]$term)
 
+ggplot(frequencies, aes(x = freq)) + geom_density(fill = "#490ca9") + xlab("Frequency") + ylab("Density") + theme_hc() + labs(title = "Term Frequencies in #WITbragday")
+
 ```
 
 
 ## Sentiment analysis
 
-```{r}
+```{r echo = FALSE}
 wit_bragday$text_usable <- gsub("[^[:alpha:][:space:]]*", "", wit_bragday$text)
 sentiments <- analyzeSentiment(as.character(wit_bragday$text_usable)) 
 
@@ -132,7 +130,7 @@ hchart(density(sentiments$SentimentGI), type = "area", color = "#B71C1C", name =
 
 ## Topic modeling
 
-```{r cache = TRUE}
+```{r include=FALSE}
 wit_stm_data <- wit_bragday %>%
   select(c(text, text_usable, favorite_count, retweet_count))
 processed <- textProcessor(wit_stm_data$text_usable, metadata = wit_stm_data)
@@ -145,7 +143,9 @@ witmodel <- stm(documents = out$documents, vocab = out$vocab,
 K = 7, prevalence =~ favorite_count * retweet_count,
 max.em.its = 200, data = out$meta,
 init.type = "Spectral")
+```
 
 
-plot(witmodel, type = "summary", xlim = c(0, .3))
+```{r echo = FALSE}
+plot(witmodel, type = "summary", xlim = c(0, .7))
 ```
